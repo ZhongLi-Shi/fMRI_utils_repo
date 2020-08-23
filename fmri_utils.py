@@ -135,5 +135,99 @@ def mat2vec(connectivity):
     feature_vec = np.vstack(vec_list)
     return feature_vec
 
+def vec2mat(tri_vec):
+    '''
+    Transfer the upper-triangle vector without diagonal element
+    to functional connectivity matrix
+
+    parameters
+    ----------
+    tri_vec: the upper-triangle vector of the functional connectivity, np.array.
+                 the shape is (L, N*(N-1) / 2)
+
+    return
+    ------
+    connectivity: the functional connectivity, np.array, (L, N, N).
+                  where L is the number of subjects, N is the number of ROIs.
+
+    '''
+    n_roi = int(np.sqrt(tri_vec.shape[1] * 2)) + 1
+    n_subject = tri_vec.shape[0]
+    connectivity = np.zeros((n_subject, n_roi, n_roi))
+    triu_idx = np.triu_indices_from(connectivity[0], 1)
+    tril_idx = np.tril_indices_from(connectivity[0], -1)
+    for k in range(n_subject):
+        connectivity[k][triu_idx], connectivity[k][tril_idx] = tri_vec[k], tri_vec[k]
+    return connectivity
+
+
+def get_functional_connectivity_index(feature_index, n_roi, T=0):
+    '''
+    Transfer the upper-triangle vector index (without diagonal element)
+    to functional connectivity (FC) index
+    The vector index and FC index both start with 0.
+
+    parameters
+    ----------
+    feature_index: the index of the upper-triangle vector, list. The element is int.
+    n_roi: the number of the ROIs, int.
+    T: the flag whether append the transpose position connectivity. int
+       if T=0, the result will include both (ROI_i, ROI_j) and (ROI_j, ROI_i)
+       else if T=1, the result will only include (ROI_i, ROI_j) with j > i
+
+    return
+    ------
+    FC_index: the functional connectivity index corresponded to the feature_index, list.
+              the element is tuple (ROI_i, ROI_j) with n_roi > j > i >= 0
+              if T=0, the result will also include ((ROI_j, ROI_i))
+    '''
+
+    assert np.max(feature_index) <= n_roi * (n_roi - 1) / 2 - 1
+    FC_index = []
+    for feat_index in feature_index:
+        # assume k is row number of the feat_index and k >= 0
+        # it satisfied k*(2*n_roi - k - 1) / 2 - 1 < feat_index <= (2*n_roi-k-2)(k+1)/2 - 1
+
+        minus_b1, delta1 = 2 * n_roi - 1, (2 * n_roi - 1) ** 2 - 4 * 2 * (feat_index + 1)
+        minus_b2, delta2 = 2 * n_roi - 3, (2 * n_roi - 3) ** 2 - 4 * 2 * (feat_index - n_roi + 2)
+
+        k1, k2 = (minus_b1 - np.sqrt(delta1)) / 2, (minus_b1 + np.sqrt(delta1)) / 2
+        k3, k4 = (minus_b2 - np.sqrt(delta2)) / 2, (minus_b2 + np.sqrt(delta2)) / 2
+
+        range_1, range_2 = set(range(0, np.ceil(k1).astype(int))) | set(range(np.ceil(k2).astype(int), n_roi)), \
+                           set(range(np.ceil(k3).astype(int), np.ceil(k4 + 1e-12).astype(int)))
+        assert len(range_1 & range_2) == 1
+        k = (range_1 & range_2).pop()
+
+        m = int(feat_index - k * (2 * n_roi - k - 1) / 2 + k + 1)
+        FC_index.append((k, m))
+        if T == 0:
+            FC_index.append((m, k))
+    return FC_index
+
+
+def get_feature_vector_index(FC_index, n_roi):
+    '''
+    Transfer the functional connectivity (FC) index
+    to upper-triangle vector index (without diagonal element)
+    The vector index and FC index both start with 0.
+
+    parameters
+    ----------
+    FC_index: the index of the upper-triangle functional connectivity, list.
+              The element is tuple (ROI_i, ROI_j) with j > i >= 0
+    n_roi: the number of the ROIs, int. it starts with 0
+
+    return
+    ------
+    feature_index: the upper-triangle vector index index corresponded to the FC_index, list.
+                   the element is int.
+    '''
+
+    feature_index = []
+    for (i, j) in FC_index:
+        feat_index = i * (2 * n_roi - i - 1) // 2 + j - i - 1
+        feature_index.append(feat_index)
+    return feature_index
 
 
