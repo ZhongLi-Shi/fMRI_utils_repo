@@ -11,7 +11,8 @@ def get_functional_connectivity(total_time_series):
     ----------
     total_time_series: the roi_signals, list (length L).
                        the elements are np.array with shape (T, N)
-                       where T is the time series step, N is the number of ROIs
+                       where T is the time series step, N is the number of ROIs.
+                       For each element, the N should be the same but T is not.
 
     return
     ------
@@ -135,6 +136,7 @@ def mat2vec(connectivity):
     feature_vec = np.vstack(vec_list)
     return feature_vec
 
+
 def vec2mat(tri_vec):
     '''
     Transfer the upper-triangle vector without diagonal element
@@ -229,5 +231,4 @@ def get_feature_vector_index(FC_index, n_roi):
         feat_index = i * (2 * n_roi - i - 1) // 2 + j - i - 1
         feature_index.append(feat_index)
     return feature_index
-
 
